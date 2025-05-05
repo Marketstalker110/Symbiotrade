@@ -1,60 +1,77 @@
-from flask import Flask, request
+import os
 import requests
+from flask import Flask, request
+from dotenv import load_dotenv
 
-# === BOTGEGEVENS INVULLEN ===
-BOT_TOKEN = '8165106767:AAHCi1ym60iBo-46c5dJZ3ZfE86EtHEBQSk'
-CHAT_ID = '6154157890'
+load_dotenv()
 
 app = Flask(__name__)
 
-# Mapping van setups naar uitleg
-setup_uitleg = {
-    "tp1": "Prijs keert terug naar ongeteste TP1-zone.",
-    "tp1v": "TP1-extensiezone wordt getest na Fib-validatie.",
-    "sub-cross": "SMA20 kruist over SMA80, mogelijke trendwijziging.",
-    "eqb": "Equal Low doorbroken – mogelijke bullish reactie.",
-    "eqh": "Equal High doorbroken – mogelijke bearish reactie."
-}
+# ✅ Haal tokens uit Render environment variables
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+CHAT_ID = os.environ.get("CHAT_ID")
+STUDENT_CHAT_ID = os.environ.get("STUDENT_CHAT_ID")  # optioneel
 
-def send_telegram_message(message):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+# ✅ Telegram API-endpoint
+url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+print(f"BOT_TOKEN = '{BOT_TOKEN}'")
+
+def send_telegram_message(text, chat_id=CHAT_ID):
     payload = {
-        'chat_id': CHAT_ID,
-        'text': message
+        "chat_id": chat_id,
+        "text": text
     }
-    requests.post(url, json=payload)
+    response = requests.post(url, json=payload)
+    print("Telegram response:", response.status_code, response.text)
 
-@app.route('/webhook', methods=['POST'])
+@app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.json
+    data = request.get_json()
 
-    custom_alert = {
-        "ticker": data.get("ticker", "Onbekend"),
-        "price": data.get("price", "n.v.t."),
-        "time": data.get("time", "n.v.t."),
-        "setup": data.get("setup", "Geen setup"),
-        "chart_url": data.get("chart_url", None)
+    ticker = data.get('ticker')
+    setup = data.get('setup')
+    price = data.get('price')
+    time = data.get('time')
+    chart_url = data.get('chart_url')
+
+    # ✨ Bouw het bericht op
+    message = (
+        f"🔔 *Nieuw signaal ontvangen!*\n"
+        f"*Pair:* {ticker}\n"
+        f"*Setup:* {setup}\n"
+        f"*Prijs:* {price}\n"
+        f"*Tijd:* {time}\n"
+        f"📈 [Bekijk chart]({chart_url})"
+    )
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+    payload_main = {
+        'chat_id': CHAT_ID,
+        'text': message,
+        'parse_mode': 'Markdown'
     }
 
-    uitleg = setup_uitleg.get(custom_alert["setup"], "Geen verdere uitleg.")
+    response_main = requests.post(url, json=payload_main)
+    print("Telegram hoofdgebruiker:", response_main.status_code, response_main.text)
 
-    # Opbouwen van het Telegram-bericht
-    message_lines = [
-        f"🚨 Symbio Alert: [{custom_alert['setup']}]",
-        f"*Ticker:* {custom_alert['ticker']}",
-        f"*Prijs:* {custom_alert['price']}",
-        f"*Tijd:* {custom_alert['time']}",
-        f"🧠 *Uitleg:* {uitleg}"
-    ]
+    # Eventueel bericht naar student
+    if STUDENT_CHAT_ID:
+        payload_student = {
+            'chat_id': STUDENT_CHAT_ID,
+            'text': message,
+            'parse_mode': 'Markdown'
+        }
+        response_student = requests.post(url, json=payload_student)
+        print("Telegram student:", response_student.status_code, response_student.text)
 
-    # Voeg de grafieklink toe als die bestaat
-    if custom_alert["chart_url"]:
-        message_lines.append(f"📈 [Open grafiek in TradingView]({custom_alert['chart_url']})")
+    return {'status': 'ok'}, 200
 
-    telegram_message = "\n".join(message_lines)
-    send_telegram_message(telegram_message)
 
-    return "✅ Alert ontvangen en doorgestuurd", 200
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="127.0.0.1", port=port)
 
-if __name__ == '__main__':
-    app.run(port=5000)
+
+
+
