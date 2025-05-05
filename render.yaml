@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: symbiobot
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "python webhook_server_updated.py"
+    plan: free
