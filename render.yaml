@@ -2,7 +2,7 @@ services:
   - type: web
     name: symbiobot
     env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: startCommand: "python send_telegram_message.py"
+    buildCommand: "pip install -r requirements.txt" 
+    startCommand: "python Webhookserver/send_telegram_message.py"
 
     plan: free
