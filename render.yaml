@@ -3,5 +3,6 @@ services:
     name: symbiobot
     env: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "python webhook_server_updated.py"
+    startCommand: startCommand: "python send_telegram_message.py"
+
     plan: free
