@@ -22,7 +22,12 @@ def send_telegram_message(message):
         'chat_id': CHAT_ID,
         'text': message
     }
-    requests.post(url, json=payload)
+print("BOT_TOKEN =", BOT_TOKEN)
+print("CHAT_ID =", CHAT_ID)
+  
+
+response = requests.post(url, json=payload)
+print("Telegram response:", response.status_code, response.text)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -57,4 +62,4 @@ def webhook():
     return "✅ Alert ontvangen en doorgestuurd", 200
 
 if __name__ == '__main__':
-    app.run(port=5000)
+    app.run(host='0.0.0.0', port=10000)
