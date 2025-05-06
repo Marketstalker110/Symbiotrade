@@ -4,20 +4,27 @@ import os
 import json
 from datetime import datetime
 from waitress import serve
+
 from flask import Flask, request, jsonify  # <-- imports bovenaan
 
 app = Flask(__name__)                      # <-- maak app aan
 
-@app.route('/telegram-webhook', methods=['POST'])  # <-- webhook endpoint
+@app.route('/telegram-webhook', methods=["POST"])
+  # <-- webhook endpoint
 def telegram_webhook():
     print("✅ Webhook HIT!")
     print("📩 Headers:", dict(request.headers))
     print("📩 Body:", request.data.decode('utf-8'))
     return jsonify(success=True)
+@app.route('/')
+def home():
+    return "✅ Webhook server draait!"
 
 # eventueel andere routes hieronder...
 
-app = Flask(__name__)
+
+
+
 
 # ✅ ROUTE VOOR TELEGRAM: /subscribe-commando
 @app.route("/telegram-webhook", methods=["POST"])
