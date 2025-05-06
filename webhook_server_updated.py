@@ -1,15 +1,17 @@
 from flask import Flask, request, jsonify
 import requests
+import os
 import json
 from datetime import datetime
+from waitress import serve
 
 app = Flask(__name__)
 
-# 🔔 ROUTE VOOR TELEGRAM: /subscribe-commando
+# ✅ ROUTE VOOR TELEGRAM: /subscribe-commando
 @app.route("/telegram-webhook", methods=["POST"])
 def telegram_webhook():
     data = request.get_json()
-    print("📩 Telegram webhook ontvangen:", data)
+    print("📨 Telegram webhook ontvangen:", data)
 
     message = data.get("message", {})
     text = message.get("text", "").strip()
@@ -26,7 +28,6 @@ def telegram_webhook():
             subscribers = {}
 
         if chat_id not in subscribers:
-            # Nieuw lid toevoegen
             subscribers[chat_id] = {
                 "username": chat.get("username", ""),
                 "subscribed_on": datetime.utcnow().isoformat()
@@ -35,28 +36,22 @@ def telegram_webhook():
             with open(path, "w") as file:
                 json.dump(subscribers, file, indent=2)
 
-            reply = f"✅ Je bent ingeschreven voor Symbiobot alerts, @{chat.get('username', '')}!"
+            reply = f"✅ Je bent ingeschreven voor SymbioBot alerts, @{chat.get('username', '')}!"
         else:
             reply = "ℹ️ Je was al geabonneerd."
 
-        # Stuur reply terug via Telegram
-        TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+        telegram_api = f"https://api.telegram.org/bot{os.environ.get('BOT_TOKEN')}/sendMessage"
         payload = {
             "chat_id": chat_id,
             "text": reply
         }
-        requests.post(TG_API, json=payload)
+        requests.post(telegram_api, json=payload)
 
     return jsonify({"status": "ok"}), 200
 
+# ✅ Start de server met waitress (vereist op Render)
+from waitress import serve
 
-# ✅ WEBHOOK TEST ENDPOINT
-@app.route("/webhook", methods=["POST"])
-def test_webhook():
-    data = request.json
-    print("🧪 Webhook ontvangen:", data)
-    return jsonify({"status": "success"}), 200
+if __name__ == '__main__':
+    serve(app, host="0.0.0.0", port=10000)
 
-
-if __name__ == "__main__":
-    app.run(port=5000)
