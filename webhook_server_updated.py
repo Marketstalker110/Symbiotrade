@@ -1,64 +1,69 @@
 from flask import Flask, request, jsonify
 import requests
 import os
-from dotenv import load_dotenv
+import json
+from datetime import datetime
+from waitress import serve
+from flask import Flask, request, jsonify  # <-- imports bovenaan
 
-load_dotenv()
+app = Flask(__name__)                      # <-- maak app aan
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-CHAT_ID = os.environ.get("CHAT_ID")
+@app.route('/telegram-webhook', methods=['POST'])  # <-- webhook endpoint
+def telegram_webhook():
+    print("✅ Webhook HIT!")
+    print("📩 Headers:", dict(request.headers))
+    print("📩 Body:", request.data.decode('utf-8'))
+    return jsonify(success=True)
+
+# eventueel andere routes hieronder...
 
 app = Flask(__name__)
 
-def send_photo_to_telegram(photo_url, caption=""):
-    telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
-    payload = {
-        'chat_id': CHAT_ID,
-        'photo': photo_url,
-        'caption': caption
-    }
-    response = requests.post(telegram_url, data=payload)
-    print("Telegram response (photo):", response.text)
-    return response
-
-def send_text_to_telegram(text):
-    telegram_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        'chat_id': CHAT_ID,
-        'text': text
-    }
-    response = requests.post(telegram_url, data=payload)
-    print("Telegram response (text):", response.text)
-    return response
-
-@app.route('/webhook', methods=['POST'])
-def webhook():
+# ✅ ROUTE VOOR TELEGRAM: /subscribe-commando
+@app.route("/telegram-webhook", methods=["POST"])
+def telegram_webhook():
     data = request.get_json()
+    print("📨 Telegram webhook ontvangen:", data)
 
-    ticker = data.get("ticker", "Onbekend")
-    price = data.get("price", "N.v.t.")
-    time = data.get("time", "N.v.t.")
-    note = data.get("note", "📈 Nieuw signaal ontvangen!")
-    chart = data.get("chart", "")
+    message = data.get("message", {})
+    text = message.get("text", "").strip()
+    chat = message.get("chat", {})
+    chat_id = str(chat.get("id"))
 
-    # Bouw de caption op
-    caption = f"{note}\n📊 Pair: {ticker}\n💰 Prijs: {price}\n🕒 Tijd: {time}"
+    if text.lower() == "/subscribe" and chat_id:
+        path = "subscribers.json"
 
-    if chart.endswith(".png"):
-        # Verstuur als afbeelding
-        send_photo_to_telegram(chart, caption)
-    else:
-        # Verstuur als tekstbericht + link
-        full_text = f"{caption}\n🔗 Chart: {chart}" if chart else caption
-        send_text_to_telegram(full_text)
+        try:
+            with open(path, "r") as file:
+                subscribers = json.load(file)
+        except FileNotFoundError:
+            subscribers = {}
 
-    return jsonify({"status": "success"}), 200
+        if chat_id not in subscribers:
+            subscribers[chat_id] = {
+                "username": chat.get("username", ""),
+                "subscribed_on": datetime.utcnow().isoformat()
+            }
+
+            with open(path, "w") as file:
+                json.dump(subscribers, file, indent=2)
+
+            reply = f"✅ Je bent ingeschreven voor SymbioBot alerts, @{chat.get('username', '')}!"
+        else:
+            reply = "ℹ️ Je was al geabonneerd."
+
+        telegram_api = f"https://api.telegram.org/bot{os.environ.get('BOT_TOKEN')}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": reply
+        }
+        requests.post(telegram_api, json=payload)
+
+    return jsonify({"status": "ok"}), 200
+
+# ✅ Start de server met waitress (vereist op Render)
+from waitress import serve
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=10000)
-
-
-
-
-
+    serve(app, host="0.0.0.0", port=10000)
 

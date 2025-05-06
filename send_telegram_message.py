@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 import os
 import requests
 from dotenv import load_dotenv
@@ -42,7 +42,7 @@ response = requests.post(url, json=payload)
 # 🖨️ Feedback
 print("Status:", response.status_code)
 print("Response:", response.json())
-=======
+
 import requests
 
 # Jouw eigen gegevens
@@ -68,4 +68,4 @@ response = requests.post(url, json=payload)
 # Feedback in de terminal
 print("Status code:", response.status_code)
 print("Antwoord:", response.json())
->>>>>>> 1071bfae841e2c799c8c7c251bbf60c8adfa0d4a
+
