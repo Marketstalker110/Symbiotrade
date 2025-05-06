@@ -1,52 +1,52 @@
+
 from flask import Flask, request, jsonify
-from waitress import serve
-import os
+import requests
 import json
+import os
 from datetime import datetime
 
-app = Flask(__name__)  # maak app aan
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
-# ✅ Webhook endpoint
-@app.route("/telegram-webhook", methods=["POST"])
-def telegram_webhook():
-    data = request.get_json()
-    print("📥 Webhook ontvangen:", data)
+app = Flask(__name__)
 
-    message_text = data.get("message", {}).get("text", "")
-    chat_id = data.get("message", {}).get("chat", {}).get("id")
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    data = request.json
+    print("📩 Webhook ontvangen:", data)
 
-    if message_text.lower() == "/subscribe":
-        # Voeg chat_id toe aan subscribers.json
+    # ✅ Nieuw: subscribe-functionaliteit
+    message = data.get("message", {})
+    text = message.get("text", "")
+    chat = message.get("chat", {})
+    chat_id = str(chat.get("id"))
+
+    if text == "/subscribe" and chat_id:
+        path = "subscribers.json"
         try:
-            with open("subscribers.json", "r") as f:
-                subscribers = json.load(f)
+            with open(path, "r") as file:
+                subscribers = json.load(file)
         except FileNotFoundError:
-            subscribers = []
+            subscribers = {}
 
         if chat_id not in subscribers:
-            subscribers.append(chat_id)
-            with open("subscribers.json", "w") as f:
-                json.dump(subscribers, f, indent=2)
-            reply = "✅ Je bent ingeschreven voor SymbioBot alerts!"
-        else:
-            reply = "ℹ️ Je was al geabonneerd."
+            subscribers[chat_id] = {
+                "username": chat.get("username", ""),
+                "subscribed_on": datetime.utcnow().isoformat()
+            }
+            with open(path, "w") as file:
+                json.dump(subscribers, file, indent=2)
 
-        telegram_api = f"https://api.telegram.org/bot{os.environ.get('BOT_TOKEN')}/sendMessage"
+        confirmation = f"✅ Je bent ingeschreven voor SymbioBot alerts, @{chat.get('username', '')}!"
+        url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
         payload = {
-            "chat_id": chat_id,
-            "text": reply
+            'chat_id': chat_id,
+            'text': confirmation
         }
-        requests.post(telegram_api, json=payload)
+        requests.post(url, json=payload)
+        return jsonify({"status": "subscribed"}), 200
 
-    return jsonify(success=True)
+    return jsonify({"status": "ok"}), 200
 
-
-# ✅ Test endpoint
-@app.route("/")
-def home():
-    return "✅ Webhook server draait!"
-
-# ✅ Start de server met Waitress (vereist op Render)
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    serve(app, host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=10000)
